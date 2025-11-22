@@ -13,7 +13,7 @@ print("aspect split: ", aspect_split2)
 
 
 BIO2 = ['O'] * len(text_split2)
-
+'''
 for sub_aspect in aspect_split2:
     len_aspect = len(sub_aspect)
 
@@ -24,7 +24,7 @@ for sub_aspect in aspect_split2:
             BIO2[i] = 'B'
             for j in range(1, len_aspect):
                 BIO2[i+j] = 'I'
-
+'''
 for line in file.readlines():
     read = json.loads(line)
 
@@ -37,15 +37,17 @@ for line in file.readlines():
     print(aspect)
 
     for sub_aspect in aspect:
-        len_aspect = len(aspect)
+        len_aspect = len(sub_aspect)
 
         # Slide over text to find matching spans (subtract the length of the aspect because the aspect can't start if there isn't enough words in the text to match with the words in the aspect)
         for i in range(len(text) - len_aspect + 1):
             if text[i:i+len_aspect] == sub_aspect:
-                # First word -> B, rest -> I
-                BIO2[i] = 'B'
-                for j in range(1, len_aspect):
-                    BIO2[i+j] = 'I'
+                # If it isn't marked by a previous aspect
+                if BIO2[i]=='O':
+                    # First word -> B, rest -> I
+                    BIO2[i] = 'B'
+                    for j in range(1, len_aspect):
+                        BIO2[i+j] = 'I'
     
     # Print result
     for w, label in zip(text, BIO2):
