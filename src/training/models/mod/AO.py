@@ -54,6 +54,12 @@ class DualModule(nn.Module):
         self.crf2 = CRF(num_tags, batch_first=True)
 
     def forward(self, input_ids, attention_mask=None, labels1=None, labels2=None):
+        device = input_ids.device
+        seq_length = input_ids.shape[1]
+        # Create a range [0, 1, 2, ..., seq_length-1] for the batch
+        position_ids = torch.arange(seq_length, dtype=torch.long, device=device)
+        position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
+
         # 1. Get Initial Embeddings
         # ModernBERT has a 'embeddings' attribute but the logic inside the 
         # forward pass is cleaner if we use the layers as intended.
@@ -65,8 +71,8 @@ class DualModule(nn.Module):
         for i, (layer1, layer2) in enumerate(zip(self.bert1.layers, self.bert2.layers)):
             # ModernBERT layers expect (hidden_states, attention_mask)
             # It handles the mask internally (often using Flash Attention)
-            h1 = layer1(h1, attention_mask)[0]
-            h2 = layer2(h2, attention_mask)[0]
+            h1 = layer1(h1, attention_mask, position_ids=position_ids)[0]
+            h2 = layer2(h2, attention_mask, position_ids=position_ids)[0]
 
             if i in self.attn_indices:
                 # Apply Cross Attention
