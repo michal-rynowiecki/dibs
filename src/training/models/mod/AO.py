@@ -32,8 +32,8 @@ class DualModule(nn.Module):
         super().__init__()
 
         # Load ModernBERT models
-        self.bert1 = AutoModel.from_pretrained(model_id1)
-        self.bert2 = AutoModel.from_pretrained(model_id2)
+        self.bert1 = AutoModel.from_pretrained(model_id1,attn_implementation="sdpa")
+        self.bert2 = AutoModel.from_pretrained(model_id2,attn_implementation="sdpa")
 
         hidden_size = self.bert1.config.hidden_size
         # ModernBERT uses 'num_hidden_layers' in config
@@ -59,6 +59,11 @@ class DualModule(nn.Module):
         # Create a range [0, 1, 2, ..., seq_length-1] for the batch
         position_ids = torch.arange(seq_length, dtype=torch.long, device=device)
         position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
+
+        if attention_mask is not None:
+            processed_mask = attention_mask.to(device=device, dtype=torch.bool)
+        else:
+            processed_mask = None
 
         # 1. Get Initial Embeddings
         # ModernBERT has a 'embeddings' attribute but the logic inside the 
