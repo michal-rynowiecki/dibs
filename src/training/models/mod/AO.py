@@ -76,8 +76,8 @@ class DualModule(nn.Module):
         for i, (layer1, layer2) in enumerate(zip(self.bert1.layers, self.bert2.layers)):
             # ModernBERT layers expect (hidden_states, attention_mask)
             # It handles the mask internally (often using Flash Attention)
-            h1 = layer1(h1, attention_mask, position_ids=position_ids)[0]
-            h2 = layer2(h2, attention_mask, position_ids=position_ids)[0]
+            h1 = layer1(h1, processed_mask, position_ids=position_ids)[0]
+            h2 = layer2(h2, processed_mask, position_ids=position_ids)[0]
 
             if i in self.attn_indices:
                 # Apply Cross Attention
@@ -85,8 +85,8 @@ class DualModule(nn.Module):
                 cross2 = self.attn2_layers[f"layer_{i}"]
                 
                 # Update hidden states based on each other
-                h1_new = cross1(query=h1, key=h2, value=h2, mask=attention_mask)
-                h2_new = cross2(query=h2, key=h1, value=h1, mask=attention_mask)
+                h1_new = cross1(query=h1, key=h2, value=h2, mask=processed_mask)
+                h2_new = cross2(query=h2, key=h1, value=h1, mask=processed_mask)
                 h1, h2 = h1_new, h2_new
 
         # 3. Output / CRF Logic
