@@ -1,3 +1,19 @@
+import torch
+import torch.optim as optim
+import torch.nn as nn
+from transformers import AutoModel, AutoTokenizer
+from torchcrf import CRF
+from torch.utils.data import Dataset, DataLoader, random_split
+
+from utils.read_input import read_data, read_conll
+from utils.transform_tokens import get_entities, get_entities_batch
+
+from BIO_dataset import BIODataset, BIODatasetDouble
+
+from train_tag import map_tokens_to_words
+
+import json
+
 class CrossAttentionLayer(nn.Module):
     def __init__(self, hidden_size, num_heads=8, dropout=0.1):
         super().__init__()
@@ -21,7 +37,6 @@ class CrossAttentionLayer(nn.Module):
         )
 
         return self.norm(query + self.dropout(attn_output))
-
 
 class DualModule(nn.Module):
     def __init__(self, model1, model2, num_tags, attn_layers=None):
