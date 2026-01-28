@@ -2,9 +2,9 @@
 # Ignore the specific local data directory downloaded by your script
 data/
 # Ignore any generic data or large file directories
-data/
+#data/
 *.csv
-*.json
+#*.json
 *.parquet
 *.h5
 

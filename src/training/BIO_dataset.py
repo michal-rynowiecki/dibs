@@ -83,11 +83,9 @@ class BIODatasetDouble(Dataset):
             max_length=self.max_len,
             return_tensors="pt",
         )
-        print(encoding)
 
         # 2. Align labels
         word_ids = encoding.word_ids()
-        print(word_ids)
         label_ids1 = [self.tag_to_id[t1] for t1 in tags1]
         label_ids2 = [self.tag_to_id[t2] for t2 in tags2]
         
@@ -154,3 +152,5 @@ class BIODatasetDouble_new(Dataset):
         print(encoding['input_ids'])
         word_ids = encoding.word_ids()
         print(word_ids)
+
+
