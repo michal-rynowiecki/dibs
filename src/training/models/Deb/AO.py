@@ -15,28 +15,24 @@ from train_tag import map_tokens_to_words
 import json
 
 class CrossAttentionLayer(nn.Module):
-    def __init__(self, hidden_size, num_heads=8, dropout=0.1):
+    def __init__(self, hidden_size, num_heads=8, droput=0.1):
         super().__init__()
-        self.multihead_attn = nn.MultiheadAttention(
-            embed_dim=hidden_size,
-            num_heads=num_heads,
-            batch_first=True
-        )
+        self.multihead_attn = nn.MultiheadAttention(embed_dim=hidden_size, num_heads=num_heads, batch_first=True)
         self.norm = nn.LayerNorm(hidden_size)
-        self.dropout = nn.Dropout(dropout)
+        self.droput = nn.Dropout(droput)
 
     def forward(self, query, key, value, mask=None):
-        if mask is not None:
+        if mask is not None: 
             mask = (mask == 0)
-
         attn_output, _ = self.multihead_attn(
             query=query,
             key=key,
             value=value,
             key_padding_mask=mask
         )
-
-        return self.norm(query + self.dropout(attn_output))
+    
+        output=self.norm(query + self.droput(attn_output))
+        return output
 
 class DualModule(nn.Module):
     def __init__(self, model1, model2, num_tags, attn_layers=None):
@@ -54,71 +50,51 @@ class DualModule(nn.Module):
         self.attn2_layers = nn.ModuleDict()
 
         for layer_idx in self.attn_layers:
-            self.attn1_layers[str(layer_idx)] = CrossAttentionLayer(hidden_size)
-            self.attn2_layers[str(layer_idx)] = CrossAttentionLayer(hidden_size)
+            self.attn1_layers[f"Cross-Attention {layer_idx}"] = CrossAttentionLayer(hidden_size)
+            self.attn2_layers[f"Cross-Attention {layer_idx}"] = CrossAttentionLayer(hidden_size)
 
         self.emission1 = nn.Linear(hidden_size, num_tags)
         self.emission2 = nn.Linear(hidden_size, num_tags)
-
         self.crf1 = CRF(num_tags, batch_first=True)
         self.crf2 = CRF(num_tags, batch_first=True)
 
+    def get_mask(self, attention_mask):
+        extended_mask = attention_mask[:, None, None, :]
+        extended_mask = (1.0 - extended_mask) * -10000.0
+        return extended_mask
+
     def forward(self, input_ids, attention_mask=None, labels1=None, labels2=None):
+        # Get embeddings
+        hidden1 = self.bert1.embeddings(input_ids)
+        hidden2 = self.bert2.embeddings(input_ids)
 
-        # Run full forward pass (DeBERTa-safe)
-        out1 = self.bert1(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            output_hidden_states=True,
-            return_dict=True
-        )
+        mask = self.get_mask(attention_mask)
 
-        out2 = self.bert2(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            output_hidden_states=True,
-            return_dict=True
-        )
+        layers1 = self.bert1.encoder.layer
+        layers2 = self.bert2.encoder.layer
 
-        hidden_states1 = out1.hidden_states
-        hidden_states2 = out2.hidden_states
+        for i, (layer1, layer2) in enumerate(zip(layers1, layers2)):
+            print('LAYER i: ', i, layer1)
+            hidden1 = layer1(hidden1, mask)[0]
+            hidden2 = layer2(hidden2, mask)[0]
 
-        # Default: last layer
-        hidden1 = hidden_states1[-1]
-        hidden2 = hidden_states2[-1]
-
-        # Apply cross-attention on selected layers
-        for layer_idx in self.attn_layers:
-            h1 = hidden_states1[layer_idx]
-            h2 = hidden_states2[layer_idx]
-
-            h1 = self.attn1_layers[str(layer_idx)](
-                query=h1, key=h2, value=h2, mask=attention_mask
-            )
-            h2 = self.attn2_layers[str(layer_idx)](
-                query=h2, key=h1, value=h1, mask=attention_mask
-            )
-
-            hidden1 = h1
-            hidden2 = h2
+            if i in self.attn_layers:
+                attn_layer1 = self.attn1_layers[f"Cross-Attention {i}"]
+                attn_layer2 = self.attn2_layers[f"Cross-Attention {i}"]
+            
+                hidden1 = attn_layer1(query=hidden1, key=hidden2, value=hidden2, mask=attention_mask)
+                hidden2 = attn_layer2(query=hidden2, key=hidden1, value=hidden1, mask=attention_mask)
 
         emissions1 = self.emission1(hidden1)
         emissions2 = self.emission2(hidden2)
 
         if labels1 is not None and labels2 is not None:
-            loss1 = -self.crf1(
-                emissions1, labels1,
-                mask=attention_mask.bool(),
-                reduction='mean'
-            )
-            loss2 = -self.crf2(
-                emissions2, labels2,
-                mask=attention_mask.bool(),
-                reduction='mean'
-            )
+            loss1 = -self.crf1(emissions1, labels1, mask=attention_mask.bool(), reduction='mean')
+            loss2 = -self.crf2(emissions2, labels2, mask=attention_mask.bool(), reduction='mean')
             return loss1 + loss2
-
-        tags1 = self.crf1.decode(emissions1, mask=attention_mask.bool())
-        tags2 = self.crf2.decode(emissions2, mask=attention_mask.bool())
-
-        return tags1, tags2
+        
+        else:
+            tags1 = self.crf1.decode(emissions1, mask=attention_mask.bool())
+            tags2 = self.crf2.decode(emissions2, mask=attention_mask.bool())
+        
+            return tags1, tags2
