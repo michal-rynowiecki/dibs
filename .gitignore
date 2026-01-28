@@ -7,7 +7,6 @@ data/
 *.json
 *.parquet
 *.h5
-src/models/
 
 # --- Virtual Environments ---
 .venv/
@@ -33,3 +32,6 @@ Thumbs.db
 
 # --- Logs ---
 *.log
+
+# --- Models ---
+src/models/
