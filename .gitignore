@@ -32,7 +32,10 @@ Thumbs.db
 
 # --- Logs ---
 *.log
+<<<<<<< HEAD
 
 # --- Models ---
 src/models/
 *.pt
+=======
+>>>>>>> d83861675e915dbe4f9b5d71e5bdfee93f799fcb
