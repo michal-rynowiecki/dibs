@@ -1,0 +1,48 @@
+from transformers import AutoTokenizer
+from torch import nn
+import torch.optim as optim
+import torch
+
+import json
+
+from torch.utils.data import Dataset, DataLoader, random_split
+
+class BinDataset(Dataset):
+    def __init__(self, data, tokenizer, max_len=128):
+        self.tokenizer = tokenizer
+        self.max_len = max_len
+        self.samples = []
+
+        for entry in data:
+            id = entry
+            sentence = entry['Text']
+            aspect = entry['Aspect']
+            opinion = entry['Opinion']
+            label = 1.0 if entry['exists'] else 0.0
+
+            self.samples.append((id, aspect, opinion, sentence, label))
+
+    def __len__(self):
+        return len(self.samples)
+    
+    def __getitem__(self, index):
+        id, aspect, opinion, sentence, label = self.samples[index]
+        encoding = self.tokenizer(
+            f"{aspect}[SEP]{opinion}",
+            sentence,
+            add_special_tokens=True,
+            max_length=self.max_len,
+            padding='max_length',
+            return_token_type_ids=True,
+            return_tensors='pt'
+        )
+
+        return {
+            'id': id,
+            'aspect': aspect,
+            'opinion': opinion,
+            'input_ids': encoding['input_ids'].flatten(),
+            'attention_mask': encoding['attention_mask'].flatten(),
+            'token_type_ids': encoding['token_type_ids'].flatten(),
+            'labels': torch.tensor(label, dtype=torch.long)
+        }
