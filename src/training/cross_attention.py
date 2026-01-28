@@ -15,7 +15,7 @@ from train_tag import map_tokens_to_words
 from models.AO import DualModule
 
 import json
-
+PATH = '/Users/michal/Projects/sentiment'
 def calculate_accuracy(predictions1, predictions2, labels1, labels2, attention_mask):
     total_correct = 0
     total_tokens = 0
@@ -46,9 +46,9 @@ def calculate_accuracy(predictions1, predictions2, labels1, labels2, attention_m
 if __name__== "__main__":
     device = torch.device("cpu") if torch.backends.mps.is_available() else torch.device("cpu")
     
-    data1_path = "/Users/michal/Projects/sentiment/data/tagged/eng_laptop_dev_BIO_Aspect.jsonl"
+    data1_path = f"{PATH}/data/tagged/eng_laptop_dev_BIO_Aspect.jsonl"
     #data1_path = '/Users/michal/Projects/sentiment/data/tagged/eng_laptop_dev_BIO_Aspect.jsonl'
-    data2_path = "/Users/michal/Projects/sentiment/data/tagged/eng_laptop_dev_BIO_Opinion.jsonl"
+    data2_path = f"{PATH}/data/tagged/eng_laptop_dev_BIO_Opinion.jsonl"
     #data2_path = '/Users/michal/Projects/sentiment/data/tagged/eng_laptop_dev_BIO_Opinion.jsonl'
     model_path = "prajjwal1/bert-small"
 
@@ -62,7 +62,7 @@ if __name__== "__main__":
     data2 = read_conll(data2_path)
 
     # Load in the model trained on the previous dataset
-    #state_dict = torch.load("/Users/michal/Projects/sentiment/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_stepone.pt", map_location=torch.device('mps'))
+    #state_dict = torch.load(f"{PATH}/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_stepone.pt", map_location=torch.device('mps'))
     #module.load_state_dict(state_dict)
 
     test_size = 1
@@ -75,7 +75,7 @@ if __name__== "__main__":
 
     module.to(device)
     
-    '''
+
     optimizer = optim.AdamW(module.parameters(), lr=5e-5)
     
     epochs = 3
@@ -106,18 +106,17 @@ if __name__== "__main__":
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{epochs} | Average Loss: {avg_loss:.4f}")
     
-    torch.save(module.state_dict(), "/Users/michal/Projects/sentiment/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_stepone.pt")
+    torch.save(module.state_dict(), f"{PATH}/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_stepone.pt")
     print("Model saved!")
-    '''
     
     #state_dict = torch.load("/Users/michal/Projects/sentiment/src/models/aspect_opinion_model_weights.pt", map_location=torch.device('mps'))
-    state_dict = torch.load('/Users/michal/Projects/sentiment/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_stepone.pt')
+    state_dict = torch.load(f'{PATH}/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_stepone.pt')
     module.load_state_dict(state_dict)
 
     total_correct = 0
     total_tokens = 0
     
-    f = open('/Users/michal/Projects/sentiment/data/predictions/eng_laptop_preds_double_train.jsonl', 'w')
+    f = open(f'{PATH}/data/predictions/eng_laptop_preds_double_train.jsonl', 'w')
     for batch in test_loader:
         with torch.no_grad():
             input_ids = batch['input_ids'].to(device)
