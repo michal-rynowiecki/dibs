@@ -1,6 +1,6 @@
 # --- Data ---
 # Ignore the specific local data directory downloaded by your script
-data/
+#data/
 # Ignore any generic data or large file directories
 #data/
 *.csv
