@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from utils.read_input import read_data, read_conll
 from utils.transform_tokens import get_entities, get_entities_batch
 
-from BIO_dataset import BIODataset, BIODatasetDouble, BIODatasetDouble_new
+from BIO_dataset import BIODataset, BIODatasetDouble
 
 from train_tag import map_tokens_to_words
 
@@ -46,11 +46,11 @@ def calculate_accuracy(predictions1, predictions2, labels1, labels2, attention_m
 if __name__== "__main__":
     device = torch.device("cpu") if torch.backends.mps.is_available() else torch.device("cpu")
     
-    data1_path = f"{PATH}/data/tagged/eng_laptop_dev_BIO_Aspect.jsonl"
+    data1_path = f"{PATH}/data/tagged/eng_laptop_train_BIO_aspect.jsonl"
     #data1_path = '/Users/michal/Projects/sentiment/data/tagged/eng_laptop_dev_BIO_Aspect.jsonl'
-    data2_path = f"{PATH}/data/tagged/eng_laptop_dev_BIO_Opinion.jsonl"
+    data2_path = f"{PATH}/data/tagged/eng_laptop_train_BIO_Opinion.jsonl"
     #data2_path = '/Users/michal/Projects/sentiment/data/tagged/eng_laptop_dev_BIO_Opinion.jsonl'
-    model_path = "prajjwal1/bert-small"
+    model_path = "prajjwal1/bert-tiny"
 
 
     tag_to_id = {"O": 0, "B-Asp": 1, "I-Asp": 2}
@@ -65,7 +65,7 @@ if __name__== "__main__":
     #state_dict = torch.load(f"{PATH}/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_stepone.pt", map_location=torch.device('mps'))
     #module.load_state_dict(state_dict)
 
-    test_size = 1
+    test_size = 0.2
 
     dataset = BIODatasetDouble(data1, data2, tokenizer, tag_to_id)
     train_dataset, test_dataset = random_split(dataset, [1-test_size, test_size])

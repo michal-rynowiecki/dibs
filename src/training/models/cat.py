@@ -35,8 +35,13 @@ class DualModule(nn.Module):
         self.bert1 = AutoModel.from_pretrained(model1)
         self.bert2 = AutoModel.from_pretrained(model2)
 
-        self.class1_weights = class1_weights
-        self.class2_weights = class2_weights
+        if class1_weights == None:
+            self.class1_weights = torch.tensor([0]*len(classes1))
+            self.class2_weights = torch.tensor([0]*len(classes2))
+            
+        else:
+            self.class1_weights = class1_weights
+            self.class2_weights = class2_weights
 
         hidden_size = self.bert1.config.hidden_size
         num_layers = self.bert1.config.num_hidden_layers
@@ -54,6 +59,10 @@ class DualModule(nn.Module):
 
         self.classes1 = classes1
         self.classes2 = classes2
+
+        self.pooler1 = nn.Linear(self.bert1.config.hidden_size, self.bert1.config.hidden_size)
+        self.pooler2 = nn.Linear(self.bert2.config.hidden_size, self.bert2.config.hidden_size)
+        self.tanh = nn.Tanh()
 
         self.classifier1 = nn.Linear(hidden_size, len(classes1))
         self.classifier2 = nn.Linear(hidden_size, len(classes2))
@@ -85,17 +94,26 @@ class DualModule(nn.Module):
                 attn_layer1 = self.attn1_layers[f"Cross-Attention {i}"]
                 attn_layer2 = self.attn2_layers[f"Cross-Attention {i}"]
             
-                hidden1 = attn_layer1(query=hidden1, key=hidden2, value=hidden2, mask=attention_mask)
-                hidden2 = attn_layer2(query=hidden2, key=hidden1, value=hidden1, mask=attention_mask)
+                prev_hidden1 = hidden1.clone()
+                prev_hidden2 = hidden2.clone()
 
-        cls_embedding1 = hidden1[:, 0, :]
-        cls_embedding1 = self.dropout(cls_embedding1)
+                hidden1 = attn_layer1(query=prev_hidden1, key=prev_hidden2, value=prev_hidden2, mask=attention_mask)
+                hidden2 = attn_layer2(query=prev_hidden2, key=prev_hidden1, value=prev_hidden1, mask=attention_mask)
 
-        cls_embedding2 = hidden2[:, 0, :]
-        cls_embedding2 = self.dropout(cls_embedding2)
+        # Extract CLS tokens
+        cls_token1 = hidden1[:, 0, :]
+        cls_token2 = hidden2[:, 0, :]
 
-        logits1 = self.classifier1(cls_embedding1)
-        logits2 = self.classifier2(cls_embedding2)
+        # Apply Pooler Logic
+        pooled_output1 = self.tanh(self.pooler1(cls_token1))
+        pooled_output2 = self.tanh(self.pooler2(cls_token2))
+
+        # Apply Dropout
+        pooled_output1 = self.dropout(pooled_output1)
+        pooled_output2 = self.dropout(pooled_output2)
+
+        logits1 = self.classifier1(pooled_output1)
+        logits2 = self.classifier2(pooled_output2)
 
         if labels1 is not None and labels2 is not None:
             loss1 = self.loss_fct1(logits1, labels1)

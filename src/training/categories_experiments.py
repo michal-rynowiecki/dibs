@@ -19,6 +19,8 @@ from train_tag import map_tokens_to_words
 from models.cat import DualModule
 from collections import Counter
 
+from random import shuffle
+
 import json
 
 def combine(quadruplet, line):
@@ -49,6 +51,7 @@ def get_damped_class_weights(counts, device):
 
 
 if __name__ == "__main__":
+    INFERENCE = True
     laptop_id2label_1 = {
         0: 'LAPTOP',
         1: 'HARDWARE', 
@@ -88,61 +91,84 @@ if __name__ == "__main__":
     }
 
     device = torch.device("cpu") if torch.backends.mps.is_available() else torch.device("cpu")
-    model_path = "prajjwal1/bert-tiny"
-    data_path = "/Users/michal/Projects/sentiment/data/processed/categories_eng_laptop_train_alltasks.jsonl"
+    model_path = "prajjwal1/bert-mini"
+    #data_path = "/Users/michal/Projects/sentiment/data/processed/categories_eng_laptop_train_alltasks.jsonl"
+    data_path = "/Users/michal/Projects/sentiment/data/predictions/eng_laptop_preds_bin.jsonl"
 
     tokenizer = AutoTokenizer.from_pretrained(model_path)
 
     f = open(data_path, 'r')
 
     data = []
-    cat1_counts = Counter()
-    cat2_counts = Counter()
+    if not INFERENCE:
+        cat1_counts = {a: 0 for a in laptop_id2label_1.values()}
+        cat2_counts = {a: 0 for a in laptop_id2label_2.values()}
 
-    for line in f.readlines():
-        temp = json.loads(line)
-        text = temp['Text']
-        id = temp['ID']
+        for line in f.readlines():
+            temp = json.loads(line)
+            text = temp['Text']
+            id = temp['ID']
 
-        for elem in temp['Quadruplet']:
-            input = combine(elem, text) # combines the relevant elements and the data point text into model input (pre-tokenizer)
-            elem['Input'] = input
+            for elem in temp['Quadruplet']:
+                input = combine(elem, text) # combines the relevant elements and the data point text into model input (pre-tokenizer)
+                elem['Input'] = input
 
-            cat1_counts[elem['Cat1']] += 1
-            cat2_counts[elem['Cat2']] += 1
+                cat1_counts[elem['Cat1']] += 1
+                cat2_counts[elem['Cat2']] += 1
+
+                data.append({'ID': id, 
+                'Text': text, 
+                'Aspect': elem['Aspect'], 
+                'Opinion': elem['Opinion'],
+                'Cat1': elem['Cat1'],
+                'Cat2': elem['Cat2']
+                })
+    else:
+        for line in f.readlines():
+            temp = json.loads(line)
+
+            text = temp['sentence']
+            id = temp['id']
 
             data.append({'ID': id, 
-            'Text': text, 
-            'Aspect': elem['Aspect'], 
-            'Opinion': elem['Opinion'],
-            'Cat1': elem['Cat1'],
-            'Cat2': elem['Cat2']
-            })
+                'Text': text, 
+                'Aspect': temp['aspect'], 
+                'Opinion': temp['opinion'],
+                })
 
-    # Get class weights
-    class_weights1 = get_damped_class_weights(list(cat1_counts.values()), device)
-    class_weights2 = get_damped_class_weights(list(cat2_counts.values()), device)
+    if not INFERENCE:
+        # Get class weights
+        class_weights1 = get_damped_class_weights(list(cat1_counts.values()), device)
+        class_weights2 = get_damped_class_weights(list(cat2_counts.values()), device)
+
+        # Remove this if you remove the only single data point per item
+        shuffle(data)
 
     dataset = CatDataset(data, tokenizer)
 
     test_size=0.2
-    train_dataset, test_dataset = random_split(dataset, [1-test_size, test_size])
+    
+    train_dataset, test_dataset = random_split(dataset, [1-test_size,  test_size])
 
     train_loader = DataLoader(train_dataset, batch_size=8, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
 
-    model = DualModule(model_path, model_path, list(cat1_counts), list(cat2_counts), class1_weights=class_weights1, class2_weights=class_weights2)
+    if not INFERENCE:
+        model = DualModule(model_path, model_path, list(laptop_id2label_1.values()), list(laptop_id2label_2.values()), attn_layers=[1, 3], class1_weights=class_weights1, class2_weights=class_weights2)
+    else:
+        model = DualModule(model_path, model_path, list(laptop_id2label_1.values()), list(laptop_id2label_2.values()), attn_layers=[1, 3])
 
-    device = torch.device("cpu") if torch.backends.mps.is_available() else torch.device("cpu")
+    device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
 
     model.to(device)
-
+    '''
     optimizer = optim.AdamW(model.parameters(), lr=5e-5)
     
     epochs = 3
     model.train()
-
+    
     for epoch in range(epochs):
+        
         total_loss = 0
 
         for batch in train_loader:
@@ -170,7 +196,7 @@ if __name__ == "__main__":
     
     torch.save(model.state_dict(), "/Users/michal/Projects/sentiment/src/models/cat_model.pt")
     print("Model saved!")
-    
+    '''
     state_dict = torch.load("/Users/michal/Projects/sentiment/src/models/cat_model.pt", map_location=torch.device('mps'))
     model.load_state_dict(state_dict)
 
@@ -178,11 +204,13 @@ if __name__ == "__main__":
     for batch in test_loader:
         with torch.no_grad():
             input_ids = batch['input_ids'].to(device)
+            texts = batch['text']
             aspect = batch['aspect']
             opinion = batch['opinion']
             attention_mask = batch['attention_mask'].to(device)
-            labels1 = batch['cat1'].to(device)
-            labels2 = batch['cat2'].to(device)
+            if not INFERENCE:
+                labels1 = batch['cat1'].to(device)
+                labels2 = batch['cat2'].to(device)
             ids = batch['ID']
 
             predictions1, predictions2 = model(input_ids, attention_mask=attention_mask)
@@ -191,13 +219,14 @@ if __name__ == "__main__":
 
             results = [
                 {
-                    "id": id_, 
-                    "aspect": asp,
-                    "opinion": op,
-                    "prediction1": laptop_id2label_1[p1.item()],
-                    "prediction2": laptop_id2label_2[p2.item()]
+                    "ID": id_, 
+                    "Text": text,
+                    "Aspect": asp,
+                    "Opinion": op,
+                    "Cat1": laptop_id2label_1[p1.item()],
+                    "Cat2": laptop_id2label_2[p2.item()]
                 }
-                for id_,asp, op, p1, p2 in zip(ids, aspect, opinion, predictions1, predictions2)
+                for id_,text, asp, op, p1, p2 in zip(ids, texts, aspect, opinion, predictions1, predictions2)
             ]
             for result in results:
                 json.dump(result, f)
@@ -206,6 +235,7 @@ if __name__ == "__main__":
     
     f = open("/Users/michal/Projects/sentiment/data/predictions/eng_laptop_preds_cat.jsonl", 'r')
 
+    '''
     total = 0
     cor1 = 0
     cor2 = 0
@@ -227,3 +257,4 @@ if __name__ == "__main__":
     print('Category 1 correct: ', cor1/total)
     print('Category 2 correct: ', cor2/total)
     print('Both: ', both/total)
+    '''

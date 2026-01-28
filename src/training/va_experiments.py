@@ -22,7 +22,9 @@ from collections import Counter
 import json
 
 if __name__ == "__main__":
-    path_data   = "/Users/michal/Projects/sentiment/data/processed/va_eng_laptop_train_alltasks.jsonl" # Path to the OG dataset which also contains the text data (i.e. actual sentences)
+    INFERENCE = True
+    #path_data   = "/Users/michal/Projects/sentiment/data/processed/va_eng_laptop_train_alltasks.jsonl" # Path to the OG dataset which also contains the text data (i.e. actual sentences)
+    path_data   = "/Users/michal/Projects/sentiment/data/predictions/eng_laptop_preds_cat.jsonl"
     model_path  = "prajjwal1/bert-tiny"
     
     tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -30,21 +32,34 @@ if __name__ == "__main__":
     f = open(path_data, 'r')
 
     data = []
-    
-    for line in f.readlines():
-        temp = json.loads(line)
-        text = temp['Text']
-        id = temp['ID']
+    if not INFERENCE:
+        for line in f.readlines():
+            temp = json.loads(line)
+            text = temp['Text']
+            id = temp['ID']
 
-        for elem in temp['Quadruplet']:
-            data.append({'ID': id,
-            'Text': text, 
-            'Aspect': elem['Aspect'], 
-            'Opinion': elem['Opinion'],
-            'Cat1': elem['Cat1'], 
-            "Cat2": elem['Cat2'], 
-            "Valence": elem['Valence'], 
-            "Arousal": elem['Arousal']
+            for elem in temp['Quadruplet']:
+                data.append({'ID': id,
+                'Text': text, 
+                'Aspect': elem['Aspect'], 
+                'Opinion': elem['Opinion'],
+                'Cat1': elem['Cat1'], 
+                "Cat2": elem['Cat2'], 
+                "Valence": elem['Valence'], 
+                "Arousal": elem['Arousal']
+                })
+    # Else the inference time read in (each line has only a single prediction)
+    else:
+        for line in f.readlines():
+            temp = json.loads(line)
+            
+            data.append({
+            'Text': temp['Text'],
+            'ID': temp['ID'],
+            'Aspect': temp['Aspect'],
+            'Opinion': temp['Opinion'],
+            'Cat1': temp['Cat1'],
+            "Cat2": temp['Cat2'], 
             })
 
     dataset = VADataset(data, tokenizer)
@@ -57,7 +72,7 @@ if __name__ == "__main__":
 
     model = DualModule(model_path, model_path)
 
-    device = torch.device("cpu") if torch.backends.mps.is_available() else torch.device("cpu")
+    device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
     model.to(device)
     '''
     optimizer = optim.AdamW(model.parameters(), lr=5e-5)
@@ -102,25 +117,30 @@ if __name__ == "__main__":
             aspect = batch['aspect']
             opinion = batch['opinion']
             attention_mask = batch['attention_mask'].to(device)
-            valence = batch['valence']
-            arousal = batch['arousal']            
+            if not INFERENCE:
+                valence = batch['valence']
+                arousal = batch['arousal'] 
+            texts = batch['text']           
             ids = batch['ID']
+            cats1 = batch['cat1']
+            cats2 = batch['cat2']
 
             v_preds, a_preds = model(input_ids, attention_mask=attention_mask)
-
+            print(ids)
             results = [
                 {
-                    "id": id_, 
+                    "id": id_,
+                    "text": text,
                     "aspect": asp,
                     "opinion": op,
+                    "cat1": cat1,
+                    "cat2": cat2,
                     "valence": v.item(),
                     "arousal": a.item()
                 }
-                for id_,asp, op, v, a in zip(ids, aspect, opinion, v_preds, a_preds)
+                for id_,text,asp, op,cat1,cat2, v, a in zip(ids,texts, aspect, opinion,cats1,cats2, v_preds, a_preds)
             ]
-            print(results)
+            
             for result in results:
                 json.dump(result, f)
                 f.write("\n")
-    
-

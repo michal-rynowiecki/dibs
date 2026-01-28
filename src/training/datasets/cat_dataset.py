@@ -8,7 +8,6 @@ import json
 from torch.utils.data import Dataset, DataLoader, random_split
 
 class CatDataset(Dataset):
-
     laptop_id2label_1 = {
         0: 'LAPTOP',
         1: 'HARDWARE', 
@@ -54,22 +53,35 @@ class CatDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_len = max_len
         self.samples = []
+        self.inference = False
+        self.ids = []
 
         for entry in data:
             id = entry['ID']
+            # DANGER, here you are only keeping a single data example from each id
+            #if id in self.ids:
+            #    continue
             text = entry['Text']
             aspect = entry['Aspect']
             opinion = entry['Opinion']
-            cat1 = self.laptop_label2id_1[entry['Cat1']] # Change the text label into id for putting into tensors later on
-            cat2 = self.laptop_label2id_2[entry['Cat2']] # ^
+            if 'Cat1' in entry:
+                cat1 = self.laptop_label2id_1[entry['Cat1']] # Change the text label into id for putting into tensors later on
+                cat2 = self.laptop_label2id_2[entry['Cat2']] # ^
+                self.samples.append((id, text, aspect, opinion, cat1, cat2))
 
-            self.samples.append((id, text, aspect, opinion, cat1, cat2))
+            else:
+                self.inference = True
+                self.samples.append((id, text, aspect, opinion))
 
     def __len__(self):
         return len(self.samples)
     
     def __getitem__(self, index):
-        id, text, aspect, opinion, cat1, cat2 = self.samples[index]
+        if self.inference:
+            id, text, aspect, opinion= self.samples[index]
+        else:
+            id, text, aspect, opinion, cat1, cat2 = self.samples[index]
+        
         encoding = self.tokenizer(
             f"{aspect}[SEP]{opinion}",
             text,
@@ -80,13 +92,25 @@ class CatDataset(Dataset):
             return_tensors='pt'
         )
 
-        return {
-            'ID': id,
-            'aspect': aspect,
-            'opinion': opinion,
-            'input_ids': encoding['input_ids'].flatten(),
-            'attention_mask': encoding['attention_mask'].flatten(),
-            'token_type_ids': encoding['token_type_ids'].flatten(),
-            'cat1': torch.tensor(cat1, dtype=torch.long), # Use long for CrossEntropy
-            'cat2': torch.tensor(cat2, dtype=torch.long) # Use long for CrossEntropy
-        }
+        if self.inference:
+            return {
+                'ID': id,
+                'text': text,
+                'aspect': aspect,
+                'opinion': opinion,
+                'input_ids': encoding['input_ids'].flatten(),
+                'attention_mask': encoding['attention_mask'].flatten(),
+                'token_type_ids': encoding['token_type_ids'].flatten(),
+            }
+        else:
+            return {
+                'ID': id,
+                'text': text,
+                'aspect': aspect,
+                'opinion': opinion,
+                'input_ids': encoding['input_ids'].flatten(),
+                'attention_mask': encoding['attention_mask'].flatten(),
+                'token_type_ids': encoding['token_type_ids'].flatten(),
+                'cat1': torch.tensor(cat1, dtype=torch.long), # Use long for CrossEntropy
+                'cat2': torch.tensor(cat2, dtype=torch.long) # Use long for CrossEntropy
+            }
