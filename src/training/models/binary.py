@@ -12,6 +12,10 @@ class BinModel(nn.Module):
 
         self.dropout = nn.Dropout(dropout_rate)
 
+        self.pooler = nn.Linear(self.bert.config.hidden_size, self.bert.config.hidden_size)
+        
+        self.tanh = nn.Tanh()
+
         self.classifier = nn.Linear(hidden_size, 1)
 
         self.loss_fct = nn.BCEWithLogitsLoss()
@@ -20,8 +24,13 @@ class BinModel(nn.Module):
         outputs = self.bert(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=None)
         
         last_hidden_state = outputs.last_hidden_state
+
+
         cls_embedding = last_hidden_state[:, 0, :]
-        cls_embedding = self.dropout(cls_embedding)
+        
+        pooled_output = self.tanh(self.pooler(cls_embedding))
+        
+        cls_embedding = self.dropout(pooled_output)
 
         score = self.classifier(cls_embedding)
 

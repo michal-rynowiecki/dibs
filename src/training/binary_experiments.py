@@ -16,9 +16,10 @@ from utils.read_input import read_data
 from torch.utils.data import Dataset, DataLoader, random_split
 
 if __name__ == "__main__":
-    INFERENCE = True
+    INFERENCE = False
+    PATH = "/Users/michal/Projects/sentiment"
 
-    path = '/Users/michal/Projects/sentiment/data/processed/bin_laptop_train_alltasks.jsonl'
+    path = f'{PATH}/data/processed/bin_laptop_train_alltasks.jsonl'
     model_path = "prajjwal1/bert-tiny"
     
     f_in = open(path, 'r')
@@ -30,22 +31,22 @@ if __name__ == "__main__":
     
     model = BinModel(model_path)
 
-    test_size = 0.2
+    test_size = 0
 
-    dataset = BinDataset(data, tokenizer)
+    dataset = BinDataset(data, tokenizer) #add_prefix_space=True
 
     train_dataset, test_dataset = random_split(dataset, [1-test_size, test_size])
     
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
-    device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
-
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    print(device)
     model.to(device)
 
     optimizer = optim.AdamW(model.parameters(), lr=5e-5)
 
-    '''
+    
     epochs = 2
     model.train()
     for epoch in range(epochs):
@@ -74,13 +75,13 @@ if __name__ == "__main__":
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{epochs} | Average Loss: {avg_loss:.4f}")
     
-    torch.save(model.state_dict(), "/Users/michal/Projects/sentiment/src/models/bin_model.pt")
+    torch.save(model.state_dict(), f"{PATH}/src/models/bin_model.pt")
     print("Model saved!")
     '''
-    state_dict = torch.load("/Users/michal/Projects/sentiment/src/models/bin_model.pt", map_location=torch.device('mps'))
+    state_dict = torch.load(f"{PATH}/src/models/bin_model.pt", map_location=torch.device('mps'))
     model.load_state_dict(state_dict)
 
-    f = open('/Users/michal/Projects/sentiment/data/predictions/eng_laptop_preds_bin.jsonl', 'w')
+    f = open(f'{PATH}/data/predictions/eng_laptop_preds_bin.jsonl', 'w')
 
     for batch in test_loader:
         with torch.no_grad():
