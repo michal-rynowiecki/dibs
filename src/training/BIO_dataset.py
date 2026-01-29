@@ -43,8 +43,8 @@ class BIODataset(Dataset):
                 aligned_label_ids.append(label_ids[word_idx])
             else:
                 # Subsequent subwords
-                aligned_label_ids.append(label_ids[word_idx])
-                #aligned_label_ids.append(0)
+                #aligned_label_ids.append(label_ids[word_idx])
+                aligned_label_ids.append(0)
             current_word_idx = word_idx
 
         # Remove the extra batch dimension added by return_tensors="pt" 
