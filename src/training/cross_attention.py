@@ -45,11 +45,11 @@ def calculate_accuracy(predictions1, predictions2, labels1, labels2, attention_m
 
 if __name__== "__main__":
     INFERENCE = False
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cpu") if torch.cuda.is_available() else torch.device("cpu")
     
-    data1_path = f"{PATH}/data/tagged/eng_laptop_dev_BIO_Aspect.jsonl"
+    data1_path = f"{PATH}/data/tagged/eng_laptop_train_BIO_Aspect.jsonl"
     #data1_path = '/Users/michal/Projects/sentiment/data/tagged/eng_laptop_dev_BIO_Aspect.jsonl'
-    data2_path = f"{PATH}/data/tagged/eng_laptop_dev_BIO_Opinion.jsonl"
+    data2_path = f"{PATH}/data/tagged/eng_laptop_train_BIO_Opinion.jsonl"
     #data2_path = '/Users/michal/Projects/sentiment/data/tagged/eng_laptop_dev_BIO_Opinion.jsonl'
     
     model_path = "prajjwal1/bert-medium"

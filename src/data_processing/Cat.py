@@ -39,4 +39,4 @@ def split_json_categories(input_file, output_file):
         print(f"{cat}: {count}")
 
 # --- Execute ---
-split_json_categories('/Users/michal/Projects/sentiment/data/raw/subtask_3/eng/eng_laptop_train_alltasks.jsonl', '/Users/michal/Projects/sentiment/data/processed/categories_eng_laptop_train_alltasks.jsonl')
+split_json_categories('/Users/michal/Projects/sentiment/data/raw/subtask_3/eng/eng_laptop_dev_task3.jsonl', '/Users/michal/Projects/sentiment/data/processed/categories_eng_laptop_dev_alltasks.jsonl')

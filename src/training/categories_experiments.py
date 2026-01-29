@@ -91,10 +91,9 @@ if __name__ == "__main__":
         8: 'CONNECTIVITY'
     }
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    #model_path = "prajjwal1/bert-mini"
-    model_path = "FacebookAI/roberta-large"
-    data_path = f"{PATH}/data/processed/categories_eng_laptop_train_alltasks.jsonl"
+    device = torch.device("cpu") if torch.cuda.is_available() else torch.device("cpu")
+    model_path = "prajjwal1/bert-medium"
+    data_path = f"{PATH}/data/processed/categories_eng_laptop_dev_alltasks.jsonl"
     #data_path = f"{PATH}/data/predictions/eng_laptop_preds_bin.jsonl"
 
     tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -148,7 +147,7 @@ if __name__ == "__main__":
 
     dataset = CatDataset(data, tokenizer)
 
-    test_size= 0
+    test_size = 1
     
     train_dataset, test_dataset = random_split(dataset, [1-test_size,  test_size])
 
@@ -156,14 +155,14 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
 
     if not INFERENCE:
-        model = DualModule(model_path, model_path, list(laptop_id2label_1.values()), list(laptop_id2label_2.values()), attn_layers=[7, 12, 23], class1_weights=class_weights1, class2_weights=class_weights2)
+        model = DualModule(model_path, model_path, list(laptop_id2label_1.values()), list(laptop_id2label_2.values()), attn_layers=[4, 7], class1_weights=class_weights1, class2_weights=class_weights2)
     else:
-        model = DualModule(model_path, model_path, list(laptop_id2label_1.values()), list(laptop_id2label_2.values()), attn_layers=[7, 12, 23])
+        model = DualModule(model_path, model_path, list(laptop_id2label_1.values()), list(laptop_id2label_2.values()), attn_layers=[4, 7])
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cpu") if torch.cuda.is_available() else torch.device("cpu")
 
     model.to(device)
-    
+    '''
     optimizer = optim.AdamW(model.parameters(), lr=5e-5)
     
     epochs = 3
@@ -174,7 +173,6 @@ if __name__ == "__main__":
         total_loss = 0
 
         for batch in train_loader:
-            print(batch)
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             labels1 = batch['cat1'].to(device)
@@ -185,7 +183,7 @@ if __name__ == "__main__":
 
             # Forward pass
             loss = model(input_ids, attention_mask=attention_mask, labels1=labels1, labels2=labels2)
-
+            print('Loss: ', loss)
             # Backward pass (calculate gradients)
             loss.backward()
 
@@ -197,10 +195,11 @@ if __name__ == "__main__":
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{epochs} | Average Loss: {avg_loss:.4f}")
     
-    torch.save(model.state_dict(), f"{PATH}/src/models/cat_model_stepone.pt")
+    torch.save(model.state_dict(), f"{PATH}/src/models/bert-base/cat_model_laptop.pt")
     print("Model saved!")
+
     '''
-    state_dict = torch.load(f"{PATH}/src/models/cat_model.pt", map_location=torch.device('mps'))
+    state_dict = torch.load(f"{PATH}/src/models/bert-base/cat_model_laptop.pt", map_location=torch.device('cpu'))
     model.load_state_dict(state_dict)
 
     f = open(f"{PATH}/data/predictions/eng_laptop_preds_cat.jsonl", 'w')
@@ -244,15 +243,16 @@ if __name__ == "__main__":
     cor2 = 0
     both = 0
     for line in f.readlines():
+        print(line)
         cur = json.loads(line)
-        cur_id = cur['id']
+        cur_id = cur['ID']
         for point in data:
-            if point['ID'] == cur_id and point['Aspect'] == cur['aspect'] and point['Opinion'] == cur['opinion']:
-                if cur['prediction1'] == point['Cat1']:
+            if point['ID'] == cur_id and point['Aspect'] == cur['Aspect'] and point['Opinion'] == cur['Opinion']:
+                if cur['Cat1'] == point['Cat1']:
                     cor1 += 1
-                if cur['prediction2'] == point['Cat2']:
+                if cur['Cat2'] == point['Cat2']:
                     cor2 += 1
-                if cur['prediction1'] == point['Cat1'] and cur['prediction2'] == point['Cat2']:
+                if cur['Cat1'] == point['Cat1'] and cur['Cat2'] == point['Cat2']:
                     both += 1 
                 total +=1
 
@@ -260,4 +260,3 @@ if __name__ == "__main__":
     print('Category 1 correct: ', cor1/total)
     print('Category 2 correct: ', cor2/total)
     print('Both: ', both/total)
-    '''

@@ -22,11 +22,12 @@ from collections import Counter
 import json
 
 if __name__ == "__main__":
-    INFERENCE = True
+    INFERENCE = False
     PATH = "/Users/michal/Projects/sentiment"
-    #path_data   = "/Users/michal/Projects/sentiment/data/processed/va_eng_laptop_train_alltasks.jsonl" # Path to the OG dataset which also contains the text data (i.e. actual sentences)
-    path_data   = f"{PATH}/data/predictions/eng_laptop_preds_cat.jsonl"
-    model_path  = "prajjwal1/bert-tiny"
+    
+    path_data   = "/Users/michal/Projects/sentiment/data/processed/va_eng_laptop_train_alltasks.jsonl" # Path to the OG dataset which also contains the text data (i.e. actual sentences)
+    #path_data   = f"{PATH}/data/predictions/eng_laptop_preds_cat.jsonl"
+    model_path  = "prajjwal1/bert-medium"
     
     tokenizer = AutoTokenizer.from_pretrained(model_path)
 
@@ -49,7 +50,7 @@ if __name__ == "__main__":
                 "Valence": elem['Valence'], 
                 "Arousal": elem['Arousal']
                 })
-                
+
     # Else the inference time read in (each line has only a single prediction)
     else:
         for line in f.readlines():
@@ -66,17 +67,17 @@ if __name__ == "__main__":
 
     dataset = VADataset(data, tokenizer)
 
-    test_size=0.2
+    test_size=0
     train_dataset, test_dataset = random_split(dataset, [1-test_size, test_size])
 
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=False)
-    test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
-    model = DualModule(model_path, model_path)
+    model = DualModule(model_path, model_path, attn_layers=[4, 7])
 
-    device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
+    device = torch.device("cpu") if torch.backends.mps.is_available() else torch.device("cpu")
     model.to(device)
-    '''
+    
     optimizer = optim.AdamW(model.parameters(), lr=5e-5)
     epochs = 3
     
@@ -94,7 +95,7 @@ if __name__ == "__main__":
             optimizer.zero_grad()
 
             loss = model(input_ids, attention_mask=attention_mask, gold1=valence, gold2=arousal)
-            
+            print('Loss: ', loss)
             loss.backward()
 
             # Update weights
@@ -105,10 +106,10 @@ if __name__ == "__main__":
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{epochs} | Average Loss: {avg_loss:.4f}")
 
-    torch.save(model.state_dict(), f"{PATH}/src/models/va_model.pt")
+    torch.save(model.state_dict(), f"{PATH}/src/models/bert-base/va_model_laptop.pt")
     print("Model saved!")
     '''
-    state_dict = torch.load("f"{PATH}/src/models/va_model.pt", map_location=torch.device('mps'))
+    state_dict = torch.load("f"{PATH}/src/models/va_model.pt", map_location=torch.device('cpu'))
     model.load_state_dict(state_dict)
 
     f = open(f"{PATH}/data/predictions/eng_laptop_preds_va.jsonl", 'w')
@@ -146,3 +147,4 @@ if __name__ == "__main__":
             for result in results:
                 json.dump(result, f)
                 f.write("\n")
+    '''

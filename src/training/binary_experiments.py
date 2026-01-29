@@ -20,8 +20,8 @@ if __name__ == "__main__":
     PATH = "/Users/michal/Projects/sentiment"
 
     path = f'{PATH}/data/processed/bin_laptop_dev_alltasks.jsonl'
-    #model_path = "prajjwal1/bert-tiny"
-    model_path = "microsoft/deberta-v3-base"
+    model_path = "prajjwal1/bert-medium"
+    #model_path = "microsoft/deberta-v3-base"
     
     f_in = open(path, 'r')
     data = []
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
 
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    device = torch.device("cpu") if torch.cuda.is_available() else torch.device("cpu")
     print(device)
     model.to(device)
     '''
@@ -82,7 +82,8 @@ if __name__ == "__main__":
     torch.save(model.state_dict(), f"{PATH}/src/models/bin_model_stepone.pt")
     print("Model saved!")
     '''
-    state_dict = torch.load(f"{PATH}/src/models/bin_model_stepone.pt", map_location=torch.device('mps'))
+    state_dict = torch.load(f"{PATH}/src/models/bin_model_stepone.pt", map_location=torch.device('cpu'))
+    state_dict = {k: v.contiguous() for k, v in state_dict.items()}
     model.load_state_dict(state_dict)
 
     f = open(f'{PATH}/data/predictions/eng_laptop_preds_bin.jsonl', 'w')
