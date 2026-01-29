@@ -20,7 +20,8 @@ if __name__ == "__main__":
     PATH = "/Users/michal/Projects/sentiment"
 
     path = f'{PATH}/data/processed/bin_laptop_train_alltasks.jsonl'
-    model_path = "prajjwal1/bert-tiny"
+    #model_path = "prajjwal1/bert-tiny"
+    model_path = "microsoft/deberta-v3-base"
     
     f_in = open(path, 'r')
     data = []
@@ -53,6 +54,7 @@ if __name__ == "__main__":
         total_loss = 0
 
         for batch in train_loader:
+            print(batch)
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             token_type_ids = batch['token_type_ids'].to(device)
@@ -75,7 +77,7 @@ if __name__ == "__main__":
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{epochs} | Average Loss: {avg_loss:.4f}")
     
-    torch.save(model.state_dict(), f"{PATH}/src/models/bin_model.pt")
+    torch.save(model.state_dict(), f"{PATH}/src/models/bin_model_stepone.pt")
     print("Model saved!")
     '''
     state_dict = torch.load(f"{PATH}/src/models/bin_model.pt", map_location=torch.device('mps'))
@@ -131,3 +133,4 @@ if __name__ == "__main__":
             for d in batch_output:
                 json.dump(d, f)
                 f.write("\n")
+        '''

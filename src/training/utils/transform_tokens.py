@@ -61,7 +61,7 @@ def get_entities(tokenizer, input_ids, predictions, labels):
     return entities, entities_gold 
 
 
-def get_entities_batch(tokenizer, input_ids_batch, predictions_batch, labels_batch):
+def get_entities_batch(tokenizer, input_ids_batch, predictions_batch, labels_batch, inference):
     """
     Retrieves entities for a batch of inputs.
     
@@ -85,16 +85,19 @@ def get_entities_batch(tokenizer, input_ids_batch, predictions_batch, labels_bat
     # Ensure inputs are lists for easy iteration
     input_ids_batch = to_list(input_ids_batch)
     predictions_batch = to_list(predictions_batch)
-    labels_batch = to_list(labels_batch)
+    if not inference:
+        labels_batch = to_list(labels_batch)
 
     batch_entities = []
-    batch_entities_gold = []
+    if not inference:
+        batch_entities_gold = []
 
     # Iterate over the batch
     for i in range(len(input_ids_batch)):
         input_ids = input_ids_batch[i]
         preds = predictions_batch[i]
-        labs = labels_batch[i]
+        if not inference:
+            labs = labels_batch[i]
 
         # Convert IDs to tokens for this specific sequence
         # Skip special tokens usually handled here, but raw conversion is fine 
@@ -106,37 +109,46 @@ def get_entities_batch(tokenizer, input_ids_batch, predictions_batch, labels_bat
             current_entity_tokens = []
             
             for word, pred in zip(words, sequence_predictions):
-                # Handle subword prefixes for different tokenizers (BERT uses ##, others might use different schemes)
+                # 1. Identify if it's a subword and clean it
+                # Note: Use word.startswith("##") for BERT or "Ġ" for RoBERTa
                 is_subword = word.startswith("##") 
                 clean_word = word.replace("##", "")
                 
-                # Skip [CLS], [SEP], [PAD] if necessary, or rely on pred=0
                 if word in tokenizer.all_special_tokens:
                     continue
 
-                if pred == 1:  # B-tag (Begin)
-                    # If we were already building an entity, save it
+                # 2. Logic: Should we start a new entity?
+                # A new entity starts if we hit a B-tag (pred == 1)
+                if pred == 1:
                     if current_entity_tokens:
                         entities.append(" ".join(current_entity_tokens))
                         current_entity_tokens = []
                     current_entity_tokens.append(clean_word)
-                    
-                elif pred == 2:  # I-tag (Inside)
-                    if is_subword and current_entity_tokens:
-                        current_entity_tokens[-1] += clean_word
-                    else:
+
+                # 3. Logic: Should we continue an entity?
+                elif pred == 2: # I-tag
+                    if not current_entity_tokens:
+                        # Edge case: I-tag without a B-tag, treat as a B-tag
                         current_entity_tokens.append(clean_word)
-                        
-                elif pred == 0:  # O-tag (Outside)
-                    if is_subword and current_entity_tokens:
-                        # Logic from original: subword of entity gets attached even if O
+                    elif is_subword:
+                        # Glue subword directly to the last piece
                         current_entity_tokens[-1] += clean_word
                     else:
+                        # Append as a new word in the same entity phrase
+                        current_entity_tokens.append(clean_word)
+
+                # 4. Logic: Outside an entity or a subword of the current word
+                else: # pred == 0 (O-tag)
+                    if is_subword and current_entity_tokens:
+                        # IMPORTANT: Even if the model predicts 'O' for "##nary", 
+                        # if it's a subword of a word that started as an entity, glue it.
+                        current_entity_tokens[-1] += clean_word
+                    else:
+                        # We hit a true 'Outside' word, close the current entity
                         if current_entity_tokens:
                             entities.append(" ".join(current_entity_tokens))
                             current_entity_tokens = []
             
-            # Catch trailing entity at end of sequence
             if current_entity_tokens:
                 entities.append(" ".join(current_entity_tokens))
             
@@ -144,9 +156,14 @@ def get_entities_batch(tokenizer, input_ids_batch, predictions_batch, labels_bat
         
         # Process current sample
         sample_entities = retrieve_tokens(preds)
-        sample_gold = retrieve_tokens(labs)
+        if not inference:
+            sample_gold = retrieve_tokens(labs)
         
         batch_entities.append(sample_entities)
-        batch_entities_gold.append(sample_gold)
+        if not inference:
+            batch_entities_gold.append(sample_gold)
 
-    return batch_entities, batch_entities_gold
+    if not inference:
+        return batch_entities, batch_entities_gold
+    else:
+        return batch_entities

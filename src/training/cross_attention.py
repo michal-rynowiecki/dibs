@@ -44,40 +44,39 @@ def calculate_accuracy(predictions1, predictions2, labels1, labels2, attention_m
 
 
 if __name__== "__main__":
+    INFERENCE = False
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     
-    data1_path = f"{PATH}/data/tagged/eng_laptop_restaurant_BIO_aspect.jsonl"
+    data1_path = f"{PATH}/data/tagged/eng_laptop_dev_BIO_Aspect.jsonl"
     #data1_path = '/Users/michal/Projects/sentiment/data/tagged/eng_laptop_dev_BIO_Aspect.jsonl'
-    data2_path = f"{PATH}/data/tagged/eng_laptop_restaurant_BIO_Opinion.jsonl"
+    data2_path = f"{PATH}/data/tagged/eng_laptop_dev_BIO_Opinion.jsonl"
     #data2_path = '/Users/michal/Projects/sentiment/data/tagged/eng_laptop_dev_BIO_Opinion.jsonl'
     
-    #model_path = "prajjwal1/bert-tiny"
-    model_path = "FacebookAI/roberta-large"
+    model_path = "prajjwal1/bert-medium"
+    #model_path = "FacebookAI/roberta-large"
 
 
     tag_to_id = {"O": 0, "B-Asp": 1, "I-Asp": 2}
     id_to_tag = {0: "O",1: "B-Asp",2: "I-Asp"}
 
-    module = DualModule(model_path, model_path, 3)
+    module = DualModule(model_path, model_path, 3, attn_layers=[3, 6])
+    module.to(device)
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     data1 = read_conll(data1_path)
     data2 = read_conll(data2_path)
 
     # Load in the model trained on the previous dataset
-    #state_dict = torch.load(f"{PATH}/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_stepone.pt", map_location=torch.device('mps'))
-    #module.load_state_dict(state_dict)
+    state_dict = torch.load(f"{PATH}/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_steptwo.pt", map_location=torch.device('mps'))
+    module.load_state_dict(state_dict)
 
-    test_size = 0
+    test_size = 1
 
     dataset = BIODatasetDouble(data1, data2, tokenizer, tag_to_id)
     train_dataset, test_dataset = random_split(dataset, [1-test_size, test_size])
     
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
-
-    module.to(device)
-    
-
+    '''
     optimizer = optim.AdamW(module.parameters(), lr=5e-5)
     
     epochs = 3
@@ -86,6 +85,7 @@ if __name__== "__main__":
         total_loss = 0
 
         for batch in train_loader:
+            print(batch)
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             labels1 = batch['labels1'].to(device)
@@ -108,12 +108,9 @@ if __name__== "__main__":
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{epochs} | Average Loss: {avg_loss:.4f}")
     
-    torch.save(module.state_dict(), f"{PATH}/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_stepone.pt")
+    torch.save(module.state_dict(), f"{PATH}/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_steptwo.pt")
     print("Model saved!")
     '''
-    state_dict = torch.load(f'{PATH}/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_stepone.pt')
-    module.load_state_dict(state_dict)
-
     total_correct = 0
     total_tokens = 0
     
@@ -122,40 +119,61 @@ if __name__== "__main__":
         with torch.no_grad():
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
-            labels1 = batch['labels1'].to(device)
-            labels2 = batch['labels2'].to(device)
+
+            if not INFERENCE:
+                labels1 = batch['labels1'].to(device)
+                labels2 = batch['labels2'].to(device)
             ids = batch['ID']
             
             predictions1, predictions2 = module(input_ids, attention_mask=attention_mask)
             
             writing_dict = {}
 
-            aspect_pred, aspect_label = get_entities_batch(tokenizer, input_ids, predictions1, labels1)
-            opinion_pred, opinion_label = get_entities_batch(tokenizer, input_ids, predictions2, labels2)
+            if not INFERENCE:
+                aspect_pred, aspect_label = get_entities_batch(tokenizer, input_ids, predictions1, labels1, INFERENCE)
+                opinion_pred, opinion_label = get_entities_batch(tokenizer, input_ids, predictions2, labels2, INFERENCE)
+            else:
+                aspect_pred = get_entities_batch(tokenizer, input_ids, predictions1, None, INFERENCE)
+                opinion_pred = get_entities_batch(tokenizer, input_ids, predictions2, None, INFERENCE)
+        
+                
             sentences = tokenizer.batch_decode(input_ids, skip_special_tokens=True)
             
-            batch_output = [
-            {
-                "ID": id,
-                "sentence": sent,
-                "aspect_predicted_tags": asp_t,
-                "aspect_gold_labels": asp_g,
-                "opinion_predicted_tags": op_t,
-                "opinion_gold_labels": op_g
-            }
-            for id, sent, asp_t, asp_g, op_t, op_g  in zip(
-                ids, sentences, aspect_pred, aspect_label, opinion_pred, opinion_label
-            )]
+            if not INFERENCE:
+                batch_output = [
+                {
+                    "ID": id,
+                    "sentence": sent,
+                    "aspect_predicted_tags": asp_t,
+                    "aspect_gold_labels": asp_g,
+                    "opinion_predicted_tags": op_t,
+                    "opinion_gold_labels": op_g
+                }
+                for id, sent, asp_t, asp_g, op_t, op_g  in zip(
+                    ids, sentences, aspect_pred, aspect_label, opinion_pred, opinion_label
+                )]
+            else:
+                batch_output = [
+                {
+                    "ID": id,
+                    "sentence": sent,
+                    "aspect_predicted_tags": asp_t,
+                    "opinion_predicted_tags": op_t
+                }
+                for id, sent, asp_t, op_t in zip(
+                    ids, sentences, aspect_pred, opinion_pred
+                )]
 
             for d in batch_output:
                 json.dump(d, f)
                 f.write("\n")
             
-            correct, count = calculate_accuracy(predictions1, predictions2, labels1, labels2, attention_mask)
-            
-            total_correct += correct
-            total_tokens += count
+            if not INFERENCE:
+                correct, count = calculate_accuracy(predictions1, predictions2, labels1, labels2, attention_mask)
+                
+                total_correct += correct
+                total_tokens += count
 
-    test_accuracy = total_correct / total_tokens
-    print(f"Test Accuracy: {test_accuracy:.4f}")
-    '''
+    if not INFERENCE:
+        test_accuracy = total_correct / total_tokens
+        print(f"Test Accuracy: {test_accuracy:.4f}")

@@ -80,9 +80,12 @@ class DualModule(nn.Module):
             if i in self.attn_layers:
                 attn_layer1 = self.attn1_layers[f"Cross-Attention {i}"]
                 attn_layer2 = self.attn2_layers[f"Cross-Attention {i}"]
+
+                prev_hidden1 = hidden1.clone()
+                prev_hidden2 = hidden2.clone()
             
-                hidden1 = attn_layer1(query=hidden1, key=hidden2, value=hidden2, mask=attention_mask)
-                hidden2 = attn_layer2(query=hidden2, key=hidden1, value=hidden1, mask=attention_mask)
+                hidden1 = attn_layer1(query=prev_hidden1, key=hidden2, value=prev_hidden2, mask=attention_mask)
+                hidden2 = attn_layer2(query=prev_hidden2, key=prev_hidden1, value=prev_hidden1, mask=attention_mask)
 
         emissions1 = self.emission1(hidden1)
         emissions2 = self.emission2(hidden2)

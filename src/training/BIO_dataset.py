@@ -102,11 +102,14 @@ class BIODatasetDouble(Dataset):
                 aligned_label_ids2.append(label_ids2[word_idx])
             else:
                 # Subsequent subwords
-                aligned_label_ids1.append(label_ids1[word_idx])
-                aligned_label_ids2.append(label_ids2[word_idx])
-                #aligned_label_ids1.append(0)
-                #aligned_label_ids2.append(0)
+                #aligned_label_ids1.append(label_ids1[word_idx])
+                #aligned_label_ids2.append(label_ids2[word_idx])
+                aligned_label_ids1.append(0)
+                aligned_label_ids2.append(0)
             current_word_idx = word_idx
+
+            print(words)
+            print(label_ids1)
 
         # Remove the extra batch dimension added by return_tensors="pt" 
         # because the DataLoader will add its own batch dimension
