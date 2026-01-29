@@ -51,7 +51,8 @@ def get_damped_class_weights(counts, device):
 
 
 if __name__ == "__main__":
-    INFERENCE = True
+    INFERENCE = False
+    PATH = "/Users/michal/Projects/sentiment"
     laptop_id2label_1 = {
         0: 'LAPTOP',
         1: 'HARDWARE', 
@@ -90,10 +91,11 @@ if __name__ == "__main__":
         8: 'CONNECTIVITY'
     }
 
-    device = torch.device("cpu") if torch.backends.mps.is_available() else torch.device("cpu")
-    model_path = "prajjwal1/bert-mini"
-    #data_path = "/Users/michal/Projects/sentiment/data/processed/categories_eng_laptop_train_alltasks.jsonl"
-    data_path = "/Users/michal/Projects/sentiment/data/predictions/eng_laptop_preds_bin.jsonl"
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    #model_path = "prajjwal1/bert-mini"
+    model_path = "FacebookAI/roberta-large"
+    data_path = f"{PATH}/data/processed/categories_eng_laptop_train_alltasks.jsonl"
+    #data_path = f"{PATH}/data/predictions/eng_laptop_preds_bin.jsonl"
 
     tokenizer = AutoTokenizer.from_pretrained(model_path)
 
@@ -146,7 +148,7 @@ if __name__ == "__main__":
 
     dataset = CatDataset(data, tokenizer)
 
-    test_size=0.2
+    test_size= 0
     
     train_dataset, test_dataset = random_split(dataset, [1-test_size,  test_size])
 
@@ -154,14 +156,14 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
 
     if not INFERENCE:
-        model = DualModule(model_path, model_path, list(laptop_id2label_1.values()), list(laptop_id2label_2.values()), attn_layers=[1, 3], class1_weights=class_weights1, class2_weights=class_weights2)
+        model = DualModule(model_path, model_path, list(laptop_id2label_1.values()), list(laptop_id2label_2.values()), attn_layers=[7, 12, 23], class1_weights=class_weights1, class2_weights=class_weights2)
     else:
-        model = DualModule(model_path, model_path, list(laptop_id2label_1.values()), list(laptop_id2label_2.values()), attn_layers=[1, 3])
+        model = DualModule(model_path, model_path, list(laptop_id2label_1.values()), list(laptop_id2label_2.values()), attn_layers=[7, 12, 23])
 
-    device = torch.device("mps") if torch.backends.mps.is_available() else torch.device("cpu")
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
     model.to(device)
-    '''
+    
     optimizer = optim.AdamW(model.parameters(), lr=5e-5)
     
     epochs = 3
@@ -172,6 +174,7 @@ if __name__ == "__main__":
         total_loss = 0
 
         for batch in train_loader:
+            print(batch)
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             labels1 = batch['cat1'].to(device)
@@ -194,13 +197,13 @@ if __name__ == "__main__":
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{epochs} | Average Loss: {avg_loss:.4f}")
     
-    torch.save(model.state_dict(), "/Users/michal/Projects/sentiment/src/models/cat_model.pt")
+    torch.save(model.state_dict(), f"{PATH}/src/models/cat_model_stepone.pt")
     print("Model saved!")
     '''
-    state_dict = torch.load("/Users/michal/Projects/sentiment/src/models/cat_model.pt", map_location=torch.device('mps'))
+    state_dict = torch.load(f"{PATH}/src/models/cat_model.pt", map_location=torch.device('mps'))
     model.load_state_dict(state_dict)
 
-    f = open("/Users/michal/Projects/sentiment/data/predictions/eng_laptop_preds_cat.jsonl", 'w')
+    f = open(f"{PATH}/data/predictions/eng_laptop_preds_cat.jsonl", 'w')
     for batch in test_loader:
         with torch.no_grad():
             input_ids = batch['input_ids'].to(device)
@@ -233,9 +236,9 @@ if __name__ == "__main__":
                 f.write("\n")
             
     
-    f = open("/Users/michal/Projects/sentiment/data/predictions/eng_laptop_preds_cat.jsonl", 'r')
+    f = open(f"{PATH}/data/predictions/eng_laptop_preds_cat.jsonl", 'r')
 
-    '''
+    
     total = 0
     cor1 = 0
     cor2 = 0

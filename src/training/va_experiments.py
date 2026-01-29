@@ -23,8 +23,9 @@ import json
 
 if __name__ == "__main__":
     INFERENCE = True
+    PATH = "/Users/michal/Projects/sentiment"
     #path_data   = "/Users/michal/Projects/sentiment/data/processed/va_eng_laptop_train_alltasks.jsonl" # Path to the OG dataset which also contains the text data (i.e. actual sentences)
-    path_data   = "/Users/michal/Projects/sentiment/data/predictions/eng_laptop_preds_cat.jsonl"
+    path_data   = f"{PATH}/data/predictions/eng_laptop_preds_cat.jsonl"
     model_path  = "prajjwal1/bert-tiny"
     
     tokenizer = AutoTokenizer.from_pretrained(model_path)
@@ -48,6 +49,7 @@ if __name__ == "__main__":
                 "Valence": elem['Valence'], 
                 "Arousal": elem['Arousal']
                 })
+                
     # Else the inference time read in (each line has only a single prediction)
     else:
         for line in f.readlines():
@@ -103,13 +105,13 @@ if __name__ == "__main__":
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{epochs} | Average Loss: {avg_loss:.4f}")
 
-    torch.save(model.state_dict(), "/Users/michal/Projects/sentiment/src/models/va_model.pt")
+    torch.save(model.state_dict(), f"{PATH}/src/models/va_model.pt")
     print("Model saved!")
     '''
-    state_dict = torch.load("/Users/michal/Projects/sentiment/src/models/va_model.pt", map_location=torch.device('mps'))
+    state_dict = torch.load("f"{PATH}/src/models/va_model.pt", map_location=torch.device('mps'))
     model.load_state_dict(state_dict)
 
-    f = open("/Users/michal/Projects/sentiment/data/predictions/eng_laptop_preds_va.jsonl", 'w')
+    f = open(f"{PATH}/data/predictions/eng_laptop_preds_va.jsonl", 'w')
 
     for batch in test_loader:
         with torch.no_grad():
