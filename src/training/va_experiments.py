@@ -22,10 +22,11 @@ from collections import Counter
 import json
 
 if __name__ == "__main__":
-    INFERENCE = False
+    INFERENCE = True
     PATH = "/Users/michal/Projects/sentiment"
     
-    path_data   = "/Users/michal/Projects/sentiment/data/processed/va_eng_laptop_train_alltasks.jsonl" # Path to the OG dataset which also contains the text data (i.e. actual sentences)
+    path_data   = "/Users/michal/Projects/sentiment/data/predictions/test/eng_restaurant_preds_cat_test.jsonl" # Path to the OG dataset which also contains the text data (i.e. actual sentences)
+    #path_data = "/Users/michal/Projects/sentiment/data/processed/va_eng_restaurant_train_alltasks.jsonl"
     #path_data   = f"{PATH}/data/predictions/eng_laptop_preds_cat.jsonl"
     model_path  = "prajjwal1/bert-medium"
     
@@ -67,7 +68,7 @@ if __name__ == "__main__":
 
     dataset = VADataset(data, tokenizer)
 
-    test_size=0
+    test_size=1
     train_dataset, test_dataset = random_split(dataset, [1-test_size, test_size])
 
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=False)
@@ -77,7 +78,7 @@ if __name__ == "__main__":
 
     device = torch.device("cpu") if torch.backends.mps.is_available() else torch.device("cpu")
     model.to(device)
-    
+    '''
     optimizer = optim.AdamW(model.parameters(), lr=5e-5)
     epochs = 3
     
@@ -106,13 +107,13 @@ if __name__ == "__main__":
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{epochs} | Average Loss: {avg_loss:.4f}")
 
-    torch.save(model.state_dict(), f"{PATH}/src/models/bert-base/va_model_laptop.pt")
+    torch.save(model.state_dict(), f"{PATH}/src/models/bert-base/va_model_restaurant.pt")
     print("Model saved!")
     '''
-    state_dict = torch.load("f"{PATH}/src/models/va_model.pt", map_location=torch.device('cpu'))
+    state_dict = torch.load(f"{PATH}/src/models/bert-base/va_model_restaurant.pt", map_location=torch.device('cpu'))
     model.load_state_dict(state_dict)
 
-    f = open(f"{PATH}/data/predictions/eng_laptop_preds_va.jsonl", 'w')
+    f = open(f"{PATH}/data/predictions/test/eng_restaurant_preds_va_test.jsonl", 'w')
 
     for batch in test_loader:
         with torch.no_grad():
@@ -147,4 +148,3 @@ if __name__ == "__main__":
             for result in results:
                 json.dump(result, f)
                 f.write("\n")
-    '''

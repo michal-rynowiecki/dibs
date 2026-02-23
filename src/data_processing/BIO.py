@@ -1,14 +1,14 @@
 import json
 
-input_path  = '/Users/michal/Projects/sentiment/data/raw/subtask_3/eng/eng_laptop_dev_task3.jsonl'
-output_path = '/Users/michal/Projects/sentiment/data/tagged/'
+#input_path  = '/Users/michal/Projects/sentiment/data/raw/subtask_3/eng/eng_laptop_test_task3.jsonl'
+#output_path = '/Users/michal/Projects/sentiment/data/tagged/'
 
 # type is either Aspect or Opinion
 # train is if the source file is the training file or the dev file
 def create_BIO_tags(path: str, output_path: str, type: str, train=False):
 
     file = open(path, 'r')
-    file_out = open(f"{output_path}eng_restaurant_dev_BIO_{type}.jsonl", 'w')
+    file_out = open(output_path, 'w')
     for line in file.readlines():
         read = json.loads(line)
 
@@ -46,4 +46,4 @@ def create_BIO_tags(path: str, output_path: str, type: str, train=False):
 
         file_out.write("\n")
 
-create_BIO_tags(input_path, output_path, 'Opinion', train=True)
+#create_BIO_tags(input_path, output_path, 'Opinion', train=True)

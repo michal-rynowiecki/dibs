@@ -34,4 +34,4 @@ def split_json_categories(input_file, output_file):
             f_out.write(json.dumps(data) + '\n')
 
 # --- Execute ---
-split_json_categories('/Users/michal/Projects/sentiment/data/raw/subtask_3/eng/eng_laptop_train_alltasks.jsonl', '/Users/michal/Projects/sentiment/data/processed/va_eng_laptop_train_alltasks.jsonl')
+split_json_categories('/Users/michal/Projects/sentiment/data/raw/subtask_3/eng/eng_restaurant_train_alltasks.jsonl', '/Users/michal/Projects/sentiment/data/processed/va_eng_restaurant_train_alltasks.jsonl')

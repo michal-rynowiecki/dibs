@@ -51,7 +51,7 @@ def get_damped_class_weights(counts, device):
 
 
 if __name__ == "__main__":
-    INFERENCE = False
+    INFERENCE = True
     PATH = "/Users/michal/Projects/sentiment"
     laptop_id2label_1 = {
         0: 'LAPTOP',
@@ -91,10 +91,28 @@ if __name__ == "__main__":
         8: 'CONNECTIVITY'
     }
 
+    restaurant_id2label_1 = {
+        0: 'RESTAURANT',
+        1: 'FOOD',
+        2: 'DRINKS',
+        3: 'AMBIENCE',
+        4: 'SERVICE',
+        5: 'LOCATION',
+        6: 'OUT_OF_SCOPE'
+    }
+
+    restaurant_id2label_2 = {
+        0: 'GENERAL',
+        1: 'PRICES',
+        2: 'QUALITY',
+        3: 'STYLE_OPTIONS',
+        4: 'MISCELLANEOUS'
+    }
+
     device = torch.device("cpu") if torch.cuda.is_available() else torch.device("cpu")
     model_path = "prajjwal1/bert-medium"
-    data_path = f"{PATH}/data/processed/categories_eng_laptop_dev_alltasks.jsonl"
-    #data_path = f"{PATH}/data/predictions/eng_laptop_preds_bin.jsonl"
+    #data_path = f"{PATH}/data/processed/categories_eng_restaurant_train_alltasks.jsonl"
+    data_path = f"{PATH}/data/predictions/test/eng_restaurant_preds_bin_test.jsonl"
 
     tokenizer = AutoTokenizer.from_pretrained(model_path)
 
@@ -102,8 +120,10 @@ if __name__ == "__main__":
 
     data = []
     if not INFERENCE:
-        cat1_counts = {a: 0 for a in laptop_id2label_1.values()}
-        cat2_counts = {a: 0 for a in laptop_id2label_2.values()}
+        #cat1_counts = {a: 0 for a in laptop_id2label_1.values()}
+        #cat2_counts = {a: 0 for a in laptop_id2label_2.values()}
+        cat1_counts = {a: 0 for a in restaurant_id2label_1.values()}
+        cat2_counts = {a: 0 for a in restaurant_id2label_2.values()}
 
         for line in f.readlines():
             temp = json.loads(line)
@@ -155,9 +175,9 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_dataset, batch_size=8, shuffle=False)
 
     if not INFERENCE:
-        model = DualModule(model_path, model_path, list(laptop_id2label_1.values()), list(laptop_id2label_2.values()), attn_layers=[4, 7], class1_weights=class_weights1, class2_weights=class_weights2)
+        model = DualModule(model_path, model_path, list(restaurant_id2label_1.values()), list(restaurant_id2label_2.values()), attn_layers=[4, 7], class1_weights=class_weights1, class2_weights=class_weights2)
     else:
-        model = DualModule(model_path, model_path, list(laptop_id2label_1.values()), list(laptop_id2label_2.values()), attn_layers=[4, 7])
+        model = DualModule(model_path, model_path, list(restaurant_id2label_1.values()), list(restaurant_id2label_2.values()), attn_layers=[4, 7])
 
     device = torch.device("cpu") if torch.cuda.is_available() else torch.device("cpu")
 
@@ -165,7 +185,7 @@ if __name__ == "__main__":
     '''
     optimizer = optim.AdamW(model.parameters(), lr=5e-5)
     
-    epochs = 3
+    epochs = 4
     model.train()
     
     for epoch in range(epochs):
@@ -195,14 +215,14 @@ if __name__ == "__main__":
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{epochs} | Average Loss: {avg_loss:.4f}")
     
-    torch.save(model.state_dict(), f"{PATH}/src/models/bert-base/cat_model_laptop.pt")
+    torch.save(model.state_dict(), f"{PATH}/src/models/bert-base/cat_model_restaurant.pt")
     print("Model saved!")
 
     '''
-    state_dict = torch.load(f"{PATH}/src/models/bert-base/cat_model_laptop.pt", map_location=torch.device('cpu'))
+    state_dict = torch.load(f"{PATH}/src/models/bert-base/cat_model_restaurant.pt", map_location=torch.device('cpu'))
     model.load_state_dict(state_dict)
 
-    f = open(f"{PATH}/data/predictions/eng_laptop_preds_cat.jsonl", 'w')
+    f = open(f"{PATH}/data/predictions/test/eng_restaurant_preds_cat_test.jsonl", 'w')
     for batch in test_loader:
         with torch.no_grad():
             input_ids = batch['input_ids'].to(device)
@@ -214,6 +234,7 @@ if __name__ == "__main__":
                 labels1 = batch['cat1'].to(device)
                 labels2 = batch['cat2'].to(device)
             ids = batch['ID']
+            print(ids)
 
             predictions1, predictions2 = model(input_ids, attention_mask=attention_mask)
             predictions1 = predictions1.argmax(dim=1)
@@ -225,8 +246,8 @@ if __name__ == "__main__":
                     "Text": text,
                     "Aspect": asp,
                     "Opinion": op,
-                    "Cat1": laptop_id2label_1[p1.item()],
-                    "Cat2": laptop_id2label_2[p2.item()]
+                    "Cat1": restaurant_id2label_1[p1.item()],
+                    "Cat2": restaurant_id2label_2[p2.item()]
                 }
                 for id_,text, asp, op, p1, p2 in zip(ids, texts, aspect, opinion, predictions1, predictions2)
             ]
@@ -234,10 +255,9 @@ if __name__ == "__main__":
                 json.dump(result, f)
                 f.write("\n")
             
-    
+    '''
     f = open(f"{PATH}/data/predictions/eng_laptop_preds_cat.jsonl", 'r')
 
-    
     total = 0
     cor1 = 0
     cor2 = 0
@@ -260,3 +280,4 @@ if __name__ == "__main__":
     print('Category 1 correct: ', cor1/total)
     print('Category 2 correct: ', cor2/total)
     print('Both: ', both/total)
+    '''

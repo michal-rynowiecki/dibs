@@ -45,9 +45,29 @@ class CatDataset(Dataset):
         7: 'MISCELLANEOUS',
         8: 'CONNECTIVITY'
     }
+    restaurant_id2label_1 = {
+        0: 'RESTAURANT',
+        1: 'FOOD',
+        2: 'DRINKS',
+        3: 'AMBIENCE',
+        4: 'SERVICE',
+        5: 'LOCATION',
+        6: 'OUT_OF_SCOPE'
+    }
 
-    laptop_label2id_1 = {value: key for key, value in laptop_id2label_1.items()}
-    laptop_label2id_2 = {value: key for key, value in laptop_id2label_2.items()}
+    restaurant_id2label_2 = {
+        0: 'GENERAL',
+        1: 'PRICES',
+        2: 'QUALITY',
+        3: 'STYLE_OPTIONS',
+        4: 'MISCELLANEOUS'
+    }
+
+    #laptop_label2id_1 = {value: key for key, value in laptop_id2label_1.items()}
+    #laptop_label2id_2 = {value: key for key, value in laptop_id2label_2.items()}
+
+    restaurant_label2id_1 = {value: key for key, value in restaurant_id2label_1.items()}
+    restaurant_label2id_2 = {value: key for key, value in restaurant_id2label_2.items()}
 
     def __init__(self, data, tokenizer, max_len=128):
         self.tokenizer = tokenizer
@@ -65,8 +85,10 @@ class CatDataset(Dataset):
             aspect = entry['Aspect']
             opinion = entry['Opinion']
             if 'Cat1' in entry:
-                cat1 = self.laptop_label2id_1[entry['Cat1']] # Change the text label into id for putting into tensors later on
-                cat2 = self.laptop_label2id_2[entry['Cat2']] # ^
+                #cat1 = self.laptop_label2id_1[entry['Cat1']] # Change the text label into id for putting into tensors later on
+                #cat2 = self.laptop_label2id_2[entry['Cat2']] # ^
+                cat1 = self.restaurant_label2id_1[entry['Cat1']] # Change the text label into id for putting into tensors later on
+                cat2 = self.restaurant_label2id_2[entry['Cat2']] # ^
                 self.samples.append((id, text, aspect, opinion, cat1, cat2))
 
             else:

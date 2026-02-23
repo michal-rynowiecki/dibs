@@ -2,11 +2,11 @@ import json
 from random import random, shuffle
 
 if __name__ == "__main__":
-    inference = False
+    inference = True
 
-    #path = '/Users/michal/Projects/sentiment/data/raw/subtask_3/eng/eng_laptop_train_alltasks.jsonl'
-    path = '/Users/michal/Projects/sentiment/data/raw/subtask_3/eng/eng_laptop_dev_task3.jsonl'
-    output_path = '/Users/michal/Projects/sentiment/data/processed/bin_laptop_dev_alltasks.jsonl'
+    #path = '/Users/michal/Projects/sentiment/data/raw/subtask_3/eng/eng_restaurant_train_alltasks.jsonl'
+    path = '/Users/michal/Projects/sentiment/data/predictions/test/eng_restaurant_preds_double_test.jsonl'
+    output_path = '/Users/michal/Projects/sentiment/data/processed/bin_restaurant_test_alltasks.jsonl'
     f = open(path, 'r')
 
     data = []
@@ -41,8 +41,8 @@ if __name__ == "__main__":
                         continue
                     data.append(data_point)
         else:
-            aspects = temp['aspect_predicted_tags']
-            opinions = temp['opinion_predicted_tags']
+            aspects = set(temp['aspect_predicted_tags'])
+            opinions = set(temp['opinion_predicted_tags'])
 
             for aspect in aspects:
                 for opinion in opinions:

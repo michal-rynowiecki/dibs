@@ -50,6 +50,7 @@ class BinDataset(Dataset):
         if self.inference:
             return {
                 'id': id,
+                'sentence': sentence,
                 'aspect': aspect,
                 'opinion': opinion,
                 'input_ids': encoding['input_ids'].flatten(),
@@ -59,6 +60,7 @@ class BinDataset(Dataset):
         else:
             return {
                 'id': id,
+                'sentence': sentence,
                 'aspect': aspect,
                 'opinion': opinion,
                 'input_ids': encoding['input_ids'].flatten(),

@@ -108,9 +108,6 @@ class BIODatasetDouble(Dataset):
                 aligned_label_ids2.append(0)
             current_word_idx = word_idx
 
-            print(words)
-            print(label_ids1)
-
         # Remove the extra batch dimension added by return_tensors="pt" 
         # because the DataLoader will add its own batch dimension
         return {
@@ -121,39 +118,39 @@ class BIODatasetDouble(Dataset):
             'labels2': torch.tensor(aligned_label_ids2)
         }
 
-class BIODatasetDouble_new(Dataset):
-    def __init__(self, data1, data2, tokenizer, tag_to_id, max_len=128):
-        self.data1 = data1
-        self.data2 = data2
+class BioDatasetInference(Dataset):
+    def __init__(self, data, tokenizer, max_len=128):
+        self.inference = False
         self.tokenizer = tokenizer
-        self.tag_to_id = tag_to_id
         self.max_len = max_len
+        self.samples = []
+
+        for entry in data:
+            id = entry
+            sentence = entry['Text']
+
+            self.samples.append((id, sentence))
 
     def __len__(self):
-        return len(self.data1)
-
-    def __getitem__(self, idx):
-        # Extract words and string tags
-        id = self.data1[idx]['ID']
-        words = [pair[0] for pair in self.data1[idx]['Tags']]
-        tags1 = [pair[1] for pair in self.data1[idx]['Tags']]
-        tags2 = [pair[1] for pair in self.data2[idx]['Tags']]
-
-        print(words)
-        print(tags1)
-        print(tags2)
+        return len(self.samples)
     
-        # 1. Tokenize
+    def __getitem__(self, index):
+        id, sentence = self.samples[index]
+
         encoding = self.tokenizer(
-            words,
-            is_split_into_words=True,
-            padding='max_length', # Ensures all sentences in a batch are same length
-            truncation=True,
+            sentence,
+            add_special_tokens=True,
             max_length=self.max_len,
-            return_tensors="pt",
+            padding='max_length',
+            return_token_type_ids=True,
+            return_tensors='pt'
         )
-        print(encoding['input_ids'])
-        word_ids = encoding.word_ids()
-        print(word_ids)
 
 
+        return {
+            'ID': id,
+            'sentence': sentence,
+            'input_ids': encoding['input_ids'].flatten(),
+            'attention_mask': encoding['attention_mask'].flatten(),
+            'token_type_ids': encoding['token_type_ids'].flatten(),
+        }

@@ -1,7 +1,7 @@
 import json
 
-path = '/Users/michal/Projects/sentiment/data/predictions/eng_laptop_preds_va.jsonl'
-out_path = '/Users/michal/Projects/sentiment/data/predictions/upload/upload.jsonl'
+path = '/Users/michal/Projects/sentiment/data/predictions/test/eng_restaurant_preds_va_test.jsonl'
+out_path = '/Users/michal/Projects/sentiment/data/predictions/upload/upload_restaurant.jsonl'
 f = open(path, 'r')
 
 data_raw = []
@@ -18,7 +18,7 @@ def combine_data(data_list):
         if item_id not in grouped_data:
             grouped_data[item_id] = {
                 "ID": item_id,
-                "text": item['text'],
+                #"text": item['text'],
                 "Quadruplet": []
             }
         

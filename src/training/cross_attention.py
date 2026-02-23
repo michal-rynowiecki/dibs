@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from utils.read_input import read_data, read_conll
 from utils.transform_tokens import get_entities, get_entities_batch
 
-from BIO_dataset import BIODataset, BIODatasetDouble
+from BIO_dataset import BIODataset, BIODatasetDouble, BioDatasetInference
 
 from train_tag import map_tokens_to_words
 
@@ -16,6 +16,9 @@ from models.AO import DualModule
 
 import json
 PATH = '/Users/michal/Projects/sentiment'
+
+print(PATH)
+
 def calculate_accuracy(predictions1, predictions2, labels1, labels2, attention_mask):
     total_correct = 0
     total_tokens = 0
@@ -44,14 +47,17 @@ def calculate_accuracy(predictions1, predictions2, labels1, labels2, attention_m
 
 
 if __name__== "__main__":
-    INFERENCE = False
+    INFERENCE = True
     device = torch.device("cpu") if torch.cuda.is_available() else torch.device("cpu")
     
-    data1_path = f"{PATH}/data/tagged/eng_laptop_train_BIO_Aspect.jsonl"
+    data1_path = f"{PATH}/data/tagged/eng_restaurant_train_BIO_Aspect.jsonl"
     #data1_path = '/Users/michal/Projects/sentiment/data/tagged/eng_laptop_dev_BIO_Aspect.jsonl'
-    data2_path = f"{PATH}/data/tagged/eng_laptop_train_BIO_Opinion.jsonl"
+    data2_path = f"{PATH}/data/tagged/eng_restaurant_train_BIO_Opinion.jsonl"
     #data2_path = '/Users/michal/Projects/sentiment/data/tagged/eng_laptop_dev_BIO_Opinion.jsonl'
     
+    if INFERENCE:
+        data_path = f"{PATH}/data/raw/subtask_3/eng/eng_restaurant_test_task3.jsonl"
+
     model_path = "prajjwal1/bert-medium"
     #model_path = "FacebookAI/roberta-large"
 
@@ -59,14 +65,21 @@ if __name__== "__main__":
     tag_to_id = {"O": 0, "B-Asp": 1, "I-Asp": 2}
     id_to_tag = {0: "O",1: "B-Asp",2: "I-Asp"}
 
-    module = DualModule(model_path, model_path, 3, attn_layers=[3, 6])
+    module = DualModule(model_path, model_path, 3, attn_layers=[4, 7])
     module.to(device)
     tokenizer = AutoTokenizer.from_pretrained(model_path)
+    
     data1 = read_conll(data1_path)
     data2 = read_conll(data2_path)
 
+    if INFERENCE:
+        data = []
+        f = open(data_path, 'r')
+        for i in f.readlines():
+            data.append(json.loads(i))
+
     # Load in the model trained on the previous dataset
-    state_dict = torch.load(f"{PATH}/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_steptwo.pt", map_location=torch.device('mps'))
+    state_dict = torch.load(f"{PATH}/src/models/bert-base/aspect_opinion_model_restaurant.pt", map_location=torch.device('cpu'))
     module.load_state_dict(state_dict)
 
     test_size = 1
@@ -76,6 +89,16 @@ if __name__== "__main__":
     
     train_loader = DataLoader(train_dataset, batch_size=16, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
+
+    if INFERENCE:
+        dataset = BioDatasetInference(data, tokenizer)
+
+        train_dataset, test_dataset = random_split(dataset, [1-test_size, test_size])
+    
+        train_loader = DataLoader(train_dataset, batch_size=16, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=16, shuffle=False)
+        print('TEST LENGTH: ', len(test_dataset))
+
     '''
     optimizer = optim.AdamW(module.parameters(), lr=5e-5)
     
@@ -85,7 +108,6 @@ if __name__== "__main__":
         total_loss = 0
 
         for batch in train_loader:
-            print(batch)
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             labels1 = batch['labels1'].to(device)
@@ -96,7 +118,7 @@ if __name__== "__main__":
 
             # Forward pass
             loss = module(input_ids, attention_mask=attention_mask, labels1=labels1, labels2=labels2)
-
+            print(loss)
             # Backward pass (calculate gradients)
             loss.backward()
 
@@ -108,13 +130,14 @@ if __name__== "__main__":
         avg_loss = total_loss / len(train_loader)
         print(f"Epoch {epoch+1}/{epochs} | Average Loss: {avg_loss:.4f}")
     
-    torch.save(module.state_dict(), f"{PATH}/src/models/Pipe/Asp_Op/aspect_opinion_model_weights_steptwo.pt")
+    torch.save(module.state_dict(), f"{PATH}/src/models/bert-base/aspect_opinion_model_restaurant.pt")
     print("Model saved!")
-    '''
+    
     total_correct = 0
     total_tokens = 0
+    '''
+    f = open(f'{PATH}/data/predictions/test/eng_restaurant_preds_double_test.jsonl', 'w')
     
-    f = open(f'{PATH}/data/predictions/eng_laptop_preds_double_train.jsonl', 'w')
     for batch in test_loader:
         with torch.no_grad():
             input_ids = batch['input_ids'].to(device)
@@ -123,6 +146,7 @@ if __name__== "__main__":
             if not INFERENCE:
                 labels1 = batch['labels1'].to(device)
                 labels2 = batch['labels2'].to(device)
+            
             ids = batch['ID']
             
             predictions1, predictions2 = module(input_ids, attention_mask=attention_mask)
@@ -132,12 +156,16 @@ if __name__== "__main__":
             if not INFERENCE:
                 aspect_pred, aspect_label = get_entities_batch(tokenizer, input_ids, predictions1, labels1, INFERENCE)
                 opinion_pred, opinion_label = get_entities_batch(tokenizer, input_ids, predictions2, labels2, INFERENCE)
+            
             else:
                 aspect_pred = get_entities_batch(tokenizer, input_ids, predictions1, None, INFERENCE)
                 opinion_pred = get_entities_batch(tokenizer, input_ids, predictions2, None, INFERENCE)
         
                 
             sentences = tokenizer.batch_decode(input_ids, skip_special_tokens=True)
+
+            if INFERENCE:
+                sentences = batch['sentence']
             
             if not INFERENCE:
                 batch_output = [
@@ -161,7 +189,7 @@ if __name__== "__main__":
                     "opinion_predicted_tags": op_t
                 }
                 for id, sent, asp_t, op_t in zip(
-                    ids, sentences, aspect_pred, opinion_pred
+                    ids['ID'], sentences, aspect_pred, opinion_pred
                 )]
 
             for d in batch_output:
