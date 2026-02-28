@@ -5,15 +5,15 @@ if __name__ == "__main__":
     inference = True
 
     #path = '/Users/michal/Projects/sentiment/data/raw/subtask_3/eng/eng_restaurant_train_alltasks.jsonl'
-    path = '/Users/michal/Projects/sentiment/data/predictions/test/eng_restaurant_preds_double_test.jsonl'
-    output_path = '/Users/michal/Projects/sentiment/data/processed/bin_restaurant_test_alltasks.jsonl'
+    path = '/Users/michal/Projects/sentiment/data/predictions/self-attention/eng_laptop_preds_double_test.jsonl'
+    output_path = '/Users/michal/Projects/sentiment/data/processed/self-attention/bin_laptop_test_alltasks.jsonl'
     f = open(path, 'r')
 
     data = []
     for line in f.readlines():
         # Initialize empty lists (with null as an available combo value everywhere)
-        aspects = {'NULL'}
-        opinions = {'NULL'}
+        aspects = set()
+        opinions = set()
 
         temp = json.loads(line)
 
@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
             for aspect in aspects:
                 for opinion in opinions:
-                    data_point = {'ID': temp['ID'], 'Text': temp['sentence'], 'Aspect': aspect, 'Opinion': opinion}
+                    data_point = {'ID': temp['ID'], 'Text': temp['sentence'], 'Aspect': aspect.replace('\u2581', ''), 'Opinion': opinion.replace('\u2581', '')}
                     data.append(data_point)
 
     f.close()
